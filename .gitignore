@@ -10,3 +10,7 @@
 # Only want to add assets and project settings to our repo
 !/Assets/
 !/ProjectSettings/
+
+# We also want the visual studio solution and project files
+!*.sln
+!*.csproj
