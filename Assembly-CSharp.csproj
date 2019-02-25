@@ -61,7 +61,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\GameSystemCode\TestScript.cs" />
+    <Compile Include="Assets\GameSystemCode\BeatBlock.cs" />
     <Reference Include="UnityEditor.StandardEvents">
       <HintPath>D:/UnityProjects/BeatGlider/Library/ScriptAssemblies/UnityEditor.StandardEvents.dll</HintPath>
     </Reference>
