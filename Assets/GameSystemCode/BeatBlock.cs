@@ -10,8 +10,21 @@ using UnityEngine;
 
 namespace BeatBlockSystem {
 
+    /// <summary>
+    /// This simply represents an animation playback curve, which is essentially some speed ramping for the animation. We model this as
+    /// mapping a 'time' (between 0 and 1, which represents the BeatBlock lifetime as an interval) to some other value between 0 and 1,
+    /// representing the how much of the animation has been completed up to that time. I.e. returning 0.75 means that the animation is 75
+    /// percent complete by the passed 'time' time. The underlying logic performing this mapping is unknown, but should follow the following
+    /// guidelines:
+    /// 
+    /// f(0) = 0
+    /// f(1) = 1
+    /// f(x) > f(y) for all x > y (POSSIBLY NOT, IN STRANGE CASES WHERE WE WANT THE ANIMATION TO OSCILLATE)
+    /// f is continuous and conforms to the properties of a mathematical function
+    /// 
+    /// </summary>
     public interface IAnimationCurve {
-        // TODO: Implement the IAnimationCurve interface
+        float MapTimeToAnimationPercentage(float time);
     }
 
     /// <summary>
