@@ -15,7 +15,7 @@ namespace BeatBlockSystem {
     /// mapping a 'time' (between 0 and 1, which represents the BeatBlock lifetime as an interval) to some other value between 0 and 1,
     /// representing the how much of the animation has been completed up to that time. I.e. returning 0.75 means that the animation is 75
     /// percent complete by the passed 'time' time. The underlying logic performing this mapping is unknown, but should follow the following
-    /// guidelines:
+    /// guidelines if possible, to make animating things for sensible and reduce the chance for crazy behaviours:
     /// 
     /// f(0) = 0
     /// f(1) = 1
@@ -215,6 +215,18 @@ namespace BeatBlockSystem {
         private float sizeScalingFactor;
         public bool SizeScalable { get; }
 
+        /// <summary>
+        /// Represents the 2D positional offset, from (0,0), that this beat block is sitting on. This should never be set while the BeatBlock exists on the layout track.
+        /// </summary>
+        public IGridPosition GridPosition { get; private set; }
 
+        // TODO: Define methods for accessing the space occupations for both hitbox, and non-hitbox stuff, and add the ability to inherently apply the beatblock's 'offset position' to that occupation data which is returned.
+        private GameSpaceOccupationOverTime hitBoxSpaceOccupation;
+        private GameSpaceOccupationOverTime animationSpaceOccupation;
+
+        // TODO: Define interfaces/controller objects which are delgated to handle interaction and management of the GameObject components: VisualGameObjController and HitboxObjectController!
+        // (These are complex objects which will ahve to themselves be designed, since most of the game-observable behaviours will be defined through the GameObjects which they manage!)
+
+        // TODO: DEFINE A 'PLACE ON LAYOUT TRACK' METHOD, WHICH IS WHAT IS ALLOWED TO SET ALL THE PRIVATE SETTERS FOR THESE PROPERTIES!
     }
 }
