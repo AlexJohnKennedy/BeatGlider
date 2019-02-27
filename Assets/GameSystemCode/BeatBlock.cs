@@ -28,25 +28,35 @@ namespace BeatBlockSystem {
     }
 
     /// <summary>
-    /// Interface for accessing a 2D grid coordinate. Represents a single point on the game grid.
-    /// Most likely will end up just being a wrapper for some simple data structure,
-    /// but put here as an interface to make it a logically abstract component which only relates to the BeatBlock and Player-grid logic system.
+    /// 2D grid coordinate. Represents a single point on the game grid.
     /// </summary>
-    public interface IGridPosition {
-        float XPos { get; }
-        float YPos { get; }
+    public struct GridPosition {
+        public float XPos { get; }
+        public float YPos { get; }
+
+        public static GridPosition operator +(GridPosition a, GridPosition b) {
+            return new GridPosition(a.XPos + b.XPos, a.YPos + b.YPos);
+        }
+        public static GridPosition operator -(GridPosition a, GridPosition b) {
+            return new GridPosition(a.XPos - b.XPos, a.YPos - b.YPos);
+        }
+
+        public GridPosition(float xPos, float yPos) {
+            XPos = xPos;
+            YPos = yPos;
+        }
 
         /// <summary>
         /// X Radius: tells us half the width of the grid, in game units. The Player-plane grid will always be centred around (0,0,0), so we know that the min
         /// and max X grid values are (-XRadius, +XRadius)
         /// </summary>
-        float XRadius { get; }
+        public static float XRadius = 12f;  // TODO: Make this not some silly hardcoded value!
 
         /// <summary>
         /// Y Radius: tells us half the height of the grid, in game units. The Player-plane grid will always be centred around (0,0,0), so we know that the min
         /// and max Y grid values are (-YRadius, +YRadius)
         /// </summary>
-        float YRadius { get; }
+        public static float YRadius = 12f;  // TODO: Make this not some silly hardcoded value!
     }
 
     /// <summary>
@@ -54,9 +64,9 @@ namespace BeatBlockSystem {
     /// Stored simply as a top-left and bottom-right point on the grid, such that the rest can be derived.
     /// </summary>
     public class GridBox {
-        public IGridPosition TopLeftPoint { get; private set; }
-        public IGridPosition BottomRightPoint { get; private set; }
-        public GridBox(IGridPosition topleft, IGridPosition bottomright) {
+        public GridPosition TopLeftPoint { get; private set; }
+        public GridPosition BottomRightPoint { get; private set; }
+        public GridBox(GridPosition topleft, GridPosition bottomright) {
             TopLeftPoint = topleft;
             BottomRightPoint = bottomright;
         }
@@ -84,14 +94,22 @@ namespace BeatBlockSystem {
             set {
                 NumPlanes = value.Length;
                 gridSpaceData = value;
-            }
+            } 
         }
         public IEnumerable<GridBox> GetPlaneData(int index) {
             if (index < 0 || index >= NumPlanes) {
                 throw new System.ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
             }
+            return GridSpaceData[index];
+        }
+        public IEnumerable<GridBox> GetPlaneData(int index, GridPosition offset) {
+            if (index < 0 || index >= NumPlanes) {
+                throw new System.ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
+            }
             else {
-                return GridSpaceData[index];
+                foreach (GridBox b in gridSpaceData) {
+                    yield return new GridBox(b.TopLeftPoint + offset, b.BottomRightPoint + offset);
+                }
             }
         }
     }
@@ -127,12 +145,12 @@ namespace BeatBlockSystem {
             return spaceOccupied[spaceOccupied.Length - 1];
         }
 
-        public GameSpaceOccupationOverTime(GameSpaceOccupation[] spaceOccupied, float[] timeWindows) {
-            if (timeWindows.Length != spaceOccupied.Length) { throw new System.ArgumentException("The data arrays must be the same size!"); }
-            if (timeWindows[timeWindows.Length - 1] < 1) { throw new System.ArgumentException("The last time window entry must be 1 or greater, to make the internal algorithm work (TODO, fix)"); }
+        public GameSpaceOccupationOverTime(GameSpaceOccupation[] spaceOccupied, float[] timeWindow) {
+            if (timeWindow.Length != spaceOccupied.Length) { throw new System.ArgumentException("The data arrays must be the same size!"); }
+            if (timeWindow[timeWindow.Length - 1] < 1) { throw new System.ArgumentException("The last time window entry must be 1 or greater, to make the internal algorithm work (TODO, fix)"); }
 
             this.spaceOccupied = spaceOccupied;
-            this.timeWindow = timeWindows;
+            this.timeWindow = timeWindow;
         }
     }
 
@@ -218,7 +236,7 @@ namespace BeatBlockSystem {
         /// <summary>
         /// Represents the 2D positional offset, from (0,0), that this beat block is sitting on. This should never be set while the BeatBlock exists on the layout track.
         /// </summary>
-        public IGridPosition GridPosition { get; private set; }
+        public GridPosition GridPosition { get; private set; }
 
         // TODO: Define methods for accessing the space occupations for both hitbox, and non-hitbox stuff, and add the ability to inherently apply the beatblock's 'offset position' to that occupation data which is returned.
         private GameSpaceOccupationOverTime hitBoxSpaceOccupation;
