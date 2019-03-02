@@ -315,12 +315,26 @@ namespace BeatBlockSystem {
         /// <param name="offsetPosition"></param>
         /// <param name="speed"></param>
         /// <returns></returns>
-        public bool OnPlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed) {
+        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed) {
             this.HitTime = hitTime;
             this.GridPosition = offsetPosition;
             this.Speed = speed;
             this.OnLayoutTrack = true;
             return true;
+        }
+        /// <summary>
+        /// Should be invoked by whichever object is creating the layout track, and this is a comboable BeatBlock, if the layout generation object wants
+        /// to set a non-default combo value.
+        /// </summary>
+        /// <param name="hitTime"></param>
+        /// <param name="offsetPosition"></param>
+        /// <param name="speed"></param>
+        /// <param name="comboVal"></param>
+        /// <returns></returns>
+        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed, int comboVal) {
+            // Note that setting this property will check and throw if this BB is not comboable.
+            this.ComboFactor = comboVal;
+            return PlacedOnLayoutTrack(hitTime, offsetPosition, speed);
         }
 
         /// <summary>
@@ -348,6 +362,31 @@ namespace BeatBlockSystem {
         private void UpdateActiveBeatBlockPostHit(float trackTime) {
             // This should only be called when we are an active BeatBlock, and we have already triggered as 'hit'
             HitboxGameObjectController.Update(trackTime);
+            if (trackTime >= HitTime + HitboxGameObjectController.HitDelayOffset + HitboxGameObjectController.HitboxDuration) {
+                currTimerObject.Update -= UpdateActiveBeatBlockPostHit;
+                OnLayoutTrack = false;
+            }
+        }
+
+        // Most of the properties are configured here.
+        public BeatBlock(int beatBlockTypeId, float speed, float hitboxPlaybackSpeedScale, IAnimationCurve animationCurve, float intensity, bool comboable, int comboFactor, int layoutLayer, float sizeScalingFactor, bool sizeScalable, GameSpaceOccupationOverTimeTemplate hitBoxSpaceOccupation, GameSpaceOccupationOverTimeTemplate animationSpaceOccupation, IAnimationGameObjectController animationGameObjectController, IHitboxGameObjectController hitboxGameObjectController) {
+            BeatBlockTypeId = beatBlockTypeId;
+            Speed = speed;
+            HitboxPlaybackSpeedScale = hitboxPlaybackSpeedScale;
+            AnimationCurve = animationCurve;
+            Intensity = intensity;
+            Comboable = comboable;
+            this.comboFactor = comboFactor;
+            LayoutLayer = layoutLayer;
+            this.sizeScalingFactor = sizeScalingFactor;
+            SizeScalable = sizeScalable;
+            this.hitBoxSpaceOccupation = hitBoxSpaceOccupation;
+            this.animationSpaceOccupation = animationSpaceOccupation;
+            AnimationGameObjectController = animationGameObjectController;
+            HitboxGameObjectController = hitboxGameObjectController;
+            OnLayoutTrack = false;
+
+            GameSpaceAreaOccupation = new BeatBlockGameSpaceOccupation(() => this.hitBoxSpaceOccupation, () => this.animationSpaceOccupation, () => this.GridPosition);
         }
     }
 
@@ -387,6 +426,16 @@ namespace BeatBlockSystem {
         float HitboxDuration { get; }
 
         bool StartAnimation(GridPosition offset, float sizeScalingFactor, float playbackSpeedScalingFactor);
+
+        /// <summary>
+        /// Called every update if and only if the hitbox object is already alive.
+        /// Note that the hitbox GameObject will update itself through the use of the Unity Engine. This update call is just to constantly inform this Controller
+        /// object what the current track time is, in beats.
+        /// This method should also 'terminate' the object (return it to pool and deactivate it) if it is
+        /// called with a timeIndex greater than or equal to (1 + HitDelayOffset + HitboxDuration)
+        /// </summary>
+        /// <param name="timeIndex"></param>
+        /// <returns></returns>
         bool Update(float timeIndex);
     }
     public interface IMasterGameTimer {
