@@ -1,6 +1,8 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 /** 
  * This file will define the generic and composable 'beat block' class, which will form the basic logic components for all
@@ -73,8 +75,9 @@ namespace BeatBlockSystem {
     }
 
     /// <summary>
-    /// This class is designed to represent a BeatBlock 'occupying space' in game space. Note, that we will want BeatBlocks to be able to
-    /// sit 'in front' of each other in 3D space as the animation of the Visual GameObject may 'come towards' the player-plane from the back of the game space.
+    /// This class is designed to represent an object 'occupying space' in game space, such that it can be defined as a template for beatblocks.
+    /// Note, that we will want BeatBlocks to be able to sit 'in front' of each other in 3D space as the animation of the Visual GameObject may 
+    /// 'come towards' the player-plane from the back of the game space.
     /// for this reason.
     /// 
     /// To represent this in a simple manner, we will divide the Z axis aspect (the depth) of the game-space simply into sections, such that the entire 3D game-space
@@ -86,7 +89,7 @@ namespace BeatBlockSystem {
     /// 
     /// This class therefore stores a collection of GridBox's for each plane in the grid space.
     /// </summary>
-    public class GameSpaceOccupation {
+    public class GameSpaceOccupationTemplate {
         public int NumPlanes { get; private set; }
         private IEnumerable<GridBox>[] gridSpaceData;
         public IEnumerable<GridBox>[] GridSpaceData {
@@ -98,13 +101,13 @@ namespace BeatBlockSystem {
         }
         public IEnumerable<GridBox> GetPlaneData(int index) {
             if (index < 0 || index >= NumPlanes) {
-                throw new System.ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
+                throw new ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
             }
             return GridSpaceData[index];
         }
         public IEnumerable<GridBox> GetPlaneData(int index, GridPosition offset) {
             if (index < 0 || index >= NumPlanes) {
-                throw new System.ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
+                throw new ArgumentOutOfRangeException("Tried to get a plane on a grid space occupation object that was illegal");
             }
             else {
                 foreach (GridBox b in gridSpaceData) {
@@ -122,17 +125,17 @@ namespace BeatBlockSystem {
     /// origin time, and one represents the beatblock's hit-time! 
     /// 
     /// </summary>
-    public class GameSpaceOccupationOverTime {
+    public class GameSpaceOccupationOverTimeTemplate {
 
         // To model 'occupying space over time' we will just do a simple representation with two arrays. This could become more sophisicated/performant later, but for now:
         // Store a series of GameSpaceOccupations in an array. Each object in the array represents the space occupied for some time window, which will be a subset of 0-1. 
         // Then, a second array contains the time windows for the corresponding GameSpaceOccupation objects.
         // So, for example, spaceOccupied[3] will represent the space occupied for all time values between [ timeWindow[2], timeWindow[3] )
         // spaceOccupied[0] will rep. the space for all time values between [ 0, timeWindow[0] ], since there is no need to store 'zero' at the start of the timeWindow array.
-        private GameSpaceOccupation[] spaceOccupied;
+        private GameSpaceOccupationTemplate[] spaceOccupied;
         private float[] timeWindow;
 
-        public GameSpaceOccupation GetSpaceOccupiedAtTime(float time) {
+        public GameSpaceOccupationTemplate GetSpaceOccupiedAtTime(float time) {
             if (time < 0 || time > 1) { throw new System.ArgumentOutOfRangeException("Time intervals must be between 0 and 1. They represent the time inverval between a BeatBlock spawning, and hitting the player-plane"); }
             
             // Since we expect the number of time windows to be very small (around 3 or 4), there's no real point doing a binary search or anything. we can just directly scan
@@ -145,12 +148,39 @@ namespace BeatBlockSystem {
             return spaceOccupied[spaceOccupied.Length - 1];
         }
 
-        public GameSpaceOccupationOverTime(GameSpaceOccupation[] spaceOccupied, float[] timeWindow) {
+        public GameSpaceOccupationOverTimeTemplate(GameSpaceOccupationTemplate[] spaceOccupied, float[] timeWindow) {
             if (timeWindow.Length != spaceOccupied.Length) { throw new System.ArgumentException("The data arrays must be the same size!"); }
             if (timeWindow[timeWindow.Length - 1] < 1) { throw new System.ArgumentException("The last time window entry must be 1 or greater, to make the internal algorithm work (TODO, fix)"); }
 
             this.spaceOccupied = spaceOccupied;
             this.timeWindow = timeWindow;
+        }
+    }
+
+    /// <summary>
+    /// This class will act as a public interface object for a GIVEN BeatBlock, and will apply any Beat-block specifc offsets and distortions to a given beat block's
+    /// GameSpaceOccupationTemplate object. The template objects will represent unmodified data which can be re-used between beat blocks, whereas, the
+    /// BeatBlockGameSpaceOccupation represents the gameSpace occupation of a given beatblock at a given time. This is the object client objects will use.
+    /// </summary>
+    public class BeatBlockGameSpaceOccupation {
+        private Func<GameSpaceOccupationOverTimeTemplate> HitboxTemplateGetter;
+        private Func<GameSpaceOccupationOverTimeTemplate> AnimationTemplateGetter;
+        private Func<GridPosition> OffsetGetter;
+
+        public BeatBlockGameSpaceOccupation(Func<GameSpaceOccupationOverTimeTemplate> hitboxTemplateGetter, Func<GameSpaceOccupationOverTimeTemplate> animationTemplateGetter, Func<GridPosition> offsetGetter) {
+            HitboxTemplateGetter = hitboxTemplateGetter;
+            AnimationTemplateGetter = animationTemplateGetter;
+            OffsetGetter = offsetGetter;
+        }
+
+        public IEnumerable<GridBox> GetHitboxArea(float time, int planeIndex) {
+            return HitboxTemplateGetter().GetSpaceOccupiedAtTime(time).GetPlaneData(planeIndex, OffsetGetter());
+        }
+        public IEnumerable<GridBox> GetAnimationArea(float time, int planeIndex) {
+            return AnimationTemplateGetter().GetSpaceOccupiedAtTime(time).GetPlaneData(planeIndex, OffsetGetter());
+        }
+        public IEnumerable<GridBox> GetTotalArea(float time, int planeIndex) {
+            return GetHitboxArea(time, planeIndex).Concat(GetAnimationArea(time, planeIndex));
         }
     }
 
@@ -238,9 +268,13 @@ namespace BeatBlockSystem {
         /// </summary>
         public GridPosition GridPosition { get; private set; }
 
-        // TODO: Define methods for accessing the space occupations for both hitbox, and non-hitbox stuff, and add the ability to inherently apply the beatblock's 'offset position' to that occupation data which is returned.
-        private GameSpaceOccupationOverTime hitBoxSpaceOccupation;
-        private GameSpaceOccupationOverTime animationSpaceOccupation;
+        /// <summary>
+        /// This property will return an interface object which allows clients to determine the what sections of the gamespace planes this particular beatblock occupies,
+        /// at a given time between 0 and 1, where 0 is the BeatBlock's origin time, and 1 is the BeatBlock's hit time.
+        /// </summary>
+        public BeatBlockGameSpaceOccupation GameSpaceAreaOccupation { get; private set; }
+        private GameSpaceOccupationOverTimeTemplate hitBoxSpaceOccupation;
+        private GameSpaceOccupationOverTimeTemplate animationSpaceOccupation;
 
         // TODO: Define interfaces/controller objects which are delgated to handle interaction and management of the GameObject components: VisualGameObjController and HitboxObjectController!
         // (These are complex objects which will ahve to themselves be designed, since most of the game-observable behaviours will be defined through the GameObjects which they manage!)
