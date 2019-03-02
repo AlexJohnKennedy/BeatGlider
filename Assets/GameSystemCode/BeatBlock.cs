@@ -188,33 +188,51 @@ namespace BeatBlockSystem {
 
         /* NOTE: All 'times' in this code are in units of BEATS, which the game manager can scale and process relative to the current in-game song */
         /* E.g. if the 'HitTime' is 12.5, that means the block will 'hit' the player-plane on the 'and' of 1, in the 4th bar. (the 12.5th beat of the song) */
+        public int BeatBlockTypeId { get; }
+        public bool OnLayoutTrack { get; private set; }
 
         /// <summary>
         /// The 'HitTime' stores the time relative to the start of the current song, in beats, that this block will 'hit' the player-plane.
         /// This will be set whenever this beat block is placed into the layout track, and never at any time. It should be illegal to attempt to change the
         /// hit time once it is already placed on the layout track; hence, the setter is private and (TODO) is only used by the method which places it onto the
         /// layout track. 
+        /// 
+        /// Settable when placed onto the layout track
         /// </summary>
         public float HitTime { get; private set; }
 
         /// <summary>
         /// The Speed determines how many beats it takes for the beatblock to hit the player-plane after starting its animation. E.g., with a speed of two, the 
         /// beat block will appear 2 beats before hitting the player-plane
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
         public float Speed { get; private set; }
+
+        /// <summary>
+        /// This controls how quickly the hitbox gameobject animation will playback, as a scale-factor of the objects normal animation speed. This should typically
+        /// only be set to one.
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
+        /// </summary>
+        public float HitboxPlaybackSpeedScale { get; }
 
         /// <summary>
         /// This object will control the speed ramping of the animation playback, converting a linearly interpolation 'time percentage' from start time to hit time
         /// into a customised time percentage to apply to the animation. This is not settable, and should only be configured when the BeatBlock logioc object is
         /// constructed.
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
         public IAnimationCurve AnimationCurve { get; }
 
         /// <summary>
         /// Intensity is used to map against the intensity track, to gauge how intense/difficult a given part of the track layout is, by summing the intensities of
         /// nearby beat blocks.
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
-        public float Intensity { get; private set; }
+        public float Intensity { get; }
 
         /// <summary>
         /// Tells the client object if this type of Beat Block can be 'comboed'. If not, this should never be set or read.
@@ -224,6 +242,8 @@ namespace BeatBlockSystem {
         /// <summary>
         /// This property tells us how many 'comboes' this beat block encapsulates. Only applies if this BeatBlock is a composite beat block, where the animation
         /// and gameObject manager logic is actually a chain of sub-beat blocks
+        /// 
+        /// Settable when placed onto the layout track
         /// </summary>
         public int ComboFactor {
             get {
@@ -231,7 +251,7 @@ namespace BeatBlockSystem {
                 return comboFactor;
             }
             private set {
-                if (!Comboable) throw new System.ArgumentException("Tried to set the Combo value on a non-comboable beat block");
+                if (!Comboable) throw new ArgumentException("Tried to set the Combo value on a non-comboable beat block");
                 else { comboFactor = value; }
             }
         }
@@ -242,6 +262,8 @@ namespace BeatBlockSystem {
         /// or if we want to calculate intensity sums per layer. For example, we might want to generate a layout such that slow, sleeping 'laser' beat blocks are on one layer,
         /// and fast moving, short lasting small blocks which fly at the player are on a separate layer. That way, the layout generators which create both of these could have
         /// the option of assessing the intensities and grid occupation of these separately. Should only ever be set when the beat block object is placed onto the layout track.
+        /// 
+        /// Settable when placed onto the layout track
         /// </summary>
         public int LayoutLayer { get; private set; }
 
@@ -249,6 +271,8 @@ namespace BeatBlockSystem {
         /// Only applicable if this BeatBlock is determined to be 'scalable'. This can be used by the layout track generator or level designer to make adjust the size of an
         /// incoming obstacle, if applicable. (Some blocks might break or act strnagely if scaled, for example if it is animated with the intention of zig sagging across the
         /// entire player-plane width)
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
         public float SizeScalingFactor {
             get {
@@ -256,7 +280,7 @@ namespace BeatBlockSystem {
                 else return sizeScalingFactor;
             }
             set {
-                if (!SizeScalable) { throw new System.ArgumentException("Tried to set the Size scaling factor on a non-scalable beat block"); }
+                if (!SizeScalable) { throw new ArgumentException("Tried to set the Size scaling factor on a non-scalable beat block"); }
                 else { sizeScalingFactor = value; }
             }
         }
@@ -265,20 +289,107 @@ namespace BeatBlockSystem {
 
         /// <summary>
         /// Represents the 2D positional offset, from (0,0), that this beat block is sitting on. This should never be set while the BeatBlock exists on the layout track.
+        /// 
+        /// Settable when placed onto the layout track
         /// </summary>
         public GridPosition GridPosition { get; private set; }
 
         /// <summary>
         /// This property will return an interface object which allows clients to determine the what sections of the gamespace planes this particular beatblock occupies,
         /// at a given time between 0 and 1, where 0 is the BeatBlock's origin time, and 1 is the BeatBlock's hit time.
+        /// 
+        /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
-        public BeatBlockGameSpaceOccupation GameSpaceAreaOccupation { get; private set; }
+        public BeatBlockGameSpaceOccupation GameSpaceAreaOccupation { get; }
         private GameSpaceOccupationOverTimeTemplate hitBoxSpaceOccupation;
         private GameSpaceOccupationOverTimeTemplate animationSpaceOccupation;
 
-        // TODO: Define interfaces/controller objects which are delgated to handle interaction and management of the GameObject components: VisualGameObjController and HitboxObjectController!
-        // (These are complex objects which will ahve to themselves be designed, since most of the game-observable behaviours will be defined through the GameObjects which they manage!)
+        public IAnimationGameObjectController AnimationGameObjectController { get; }
 
-        // TODO: DEFINE A 'PLACE ON LAYOUT TRACK' METHOD, WHICH IS WHAT IS ALLOWED TO SET ALL THE PRIVATE SETTERS FOR THESE PROPERTIES!
+        public IHitboxGameObjectController HitboxGameObjectController { get; }
+
+        /// <summary>
+        /// Should be invoked by whichever object is creating the Layout track, whenever this BeatBlock is placed onto a position on the track.
+        /// </summary>
+        /// <param name="hitTime"></param>
+        /// <param name="offsetPosition"></param>
+        /// <param name="speed"></param>
+        /// <returns></returns>
+        public bool OnPlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed) {
+            this.HitTime = hitTime;
+            this.GridPosition = offsetPosition;
+            this.Speed = speed;
+            this.OnLayoutTrack = true;
+            return true;
+        }
+
+        /// <summary>
+        /// Called by the Game manager when it is time for this BeatBlock to start. I.e. the game time is (HitTime - Speed)
+        /// All we need to do here is register for updates from the game timer source, and trigger the animation object to start it's animation!
+        /// </summary>
+        /// <param name="timerObject"></param>
+        /// <returns></returns>
+        public bool ActivateBeatBlock(IMasterGameTimer timerObject) {
+            timerObject.Update += UpdateActiveBeatBlockPreHit;
+            currTimerObject = timerObject;
+            return AnimationGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.Speed);
+        }
+        private IMasterGameTimer currTimerObject;
+
+        private void UpdateActiveBeatBlockPreHit(float trackTime) {
+            // This should only be called when we are an active BeatBlock, and we have not yet triggered as 'hit'
+            AnimationGameObjectController.Update(AnimationCurve.MapTimeToAnimationPercentage(trackTime));
+            if (trackTime >= HitTime) {
+                HitboxGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.HitboxPlaybackSpeedScale);
+                currTimerObject.Update -= UpdateActiveBeatBlockPreHit;
+                currTimerObject.Update += UpdateActiveBeatBlockPostHit;
+            }
+        }
+        private void UpdateActiveBeatBlockPostHit(float trackTime) {
+            // This should only be called when we are an active BeatBlock, and we have already triggered as 'hit'
+            HitboxGameObjectController.Update(trackTime);
+        }
+    }
+
+    /// <summary>
+    /// Interface through which the BeatBlock object can control and trigger the animation gameobject which is attached to it.
+    /// </summary>
+    public interface IAnimationGameObjectController {
+        /// <summary>
+        /// Identifies the 'type' of animation this is. Will map to values in some global configuration mapping, which will be shared by the gameObject pooling system.
+        /// I.e., when the 'start animation' method is called, this controller will acquire a GameObject from the pool which corresponds with this TypeId!
+        /// </summary>
+        int AnimationTypeId { get; }
+
+        /// <summary>
+        /// This will instantiate an animation-gameobject in the game world on the back-plane with a 'offset' position from (0,0), and start the animation.
+        /// This method should always be called by the Beat-Block object when the game-time is equal to (BeatBlock.HitTime - Speed)
+        /// </summary>
+        /// <param name="offset"> Positional offset (x,y) to spawn the animation object at, at the back plane. </param>
+        /// <param name="scalingFactor"> Scaling to apply to the GameObject </param>
+        /// <param name="speed"> Informs the gameobject scripts how long its animation will be in total, in case it will need to factor that in </param>
+        /// <returns></returns>
+        bool StartAnimation(GridPosition offset, float scalingFactor, float speed);
+
+        /// <summary>
+        /// Called every update if and only if the animation object is already alive. At each update, the timeIndex parameter will inform what percentage of the
+        /// playback the animation should advance to on this frame. This method should also 'terminate' the object (return it to pool and deactivate it) if it is
+        /// called with a timeIndex greater than or equal to 1.
+        /// </summary>
+        /// <param name="timeIndex"> what percentage of the playback the animation should advance to on this frame.</param>
+        /// <returns></returns>
+        bool Update(float timeIndex);
+    }
+    public interface IHitboxGameObjectController {
+        int HitboxTypeId { get; }
+
+        float HitDelayOffset { get; }
+        float HitboxDuration { get; }
+
+        bool StartAnimation(GridPosition offset, float sizeScalingFactor, float playbackSpeedScalingFactor);
+        bool Update(float timeIndex);
+    }
+    public interface IMasterGameTimer {
+        event Action<float> Update;
     }
 }
