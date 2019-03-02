@@ -346,7 +346,7 @@ namespace BeatBlockSystem {
         public bool ActivateBeatBlock(IMasterGameTimer timerObject) {
             timerObject.Update += UpdateActiveBeatBlockPreHit;
             currTimerObject = timerObject;
-            return AnimationGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.Speed);
+            return AnimationGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.Speed, this.ComboFactor);
         }
         private IMasterGameTimer currTimerObject;
 
@@ -408,7 +408,7 @@ namespace BeatBlockSystem {
         /// <param name="scalingFactor"> Scaling to apply to the GameObject </param>
         /// <param name="speed"> Informs the gameobject scripts how long its animation will be in total, in case it will need to factor that in </param>
         /// <returns></returns>
-        bool StartAnimation(GridPosition offset, float scalingFactor, float speed);
+        bool StartAnimation(GridPosition offset, float scalingFactor, float speed, int comboFactor);
 
         /// <summary>
         /// Called every update if and only if the animation object is already alive. At each update, the timeIndex parameter will inform what percentage of the
