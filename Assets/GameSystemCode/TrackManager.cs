@@ -13,6 +13,17 @@ namespace TrackSystem {
     }
 
     /// <summary>
+    /// A generic Object pooling interface, which allows pooling of int-identifiable 'archetypes' of some class.
+    /// This allows us to pool different configurations of the same Class-type, and retrieve them accordingly. I.e., this pooling interface
+    /// essentially accesses multiple sub-pools in its implementation.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public interface CategoricalObjectPool<T> {
+        T GetObject(int typeId);
+        bool PoolObject(T objectToDeactivate, int typeId);
+    }
+
+    /// <summary>
     /// This is the controller class which is called by the game-engine. It manages a 'level' which takes the form of a music track.
     /// It will be responsible for managing the beat-blocks which are currently active, and activating beat-blocks from the layout-track
     /// at the appropriate time.
@@ -27,8 +38,9 @@ namespace TrackSystem {
         // Event to tell active BeatBlocks about the current tracktime, in beats.
         public event Action<float> UpdateTime;
 
-        public TrackManager(ITrackFactory factoryObj) {
+        public TrackManager(ITrackFactory factoryObj, CategoricalObjectPool<BeatBlock> beatBlockPool) {
             trackFactory = factoryObj;
+            this.beatBlockPool = beatBlockPool;
             isCurrentlyPlayingTrack = false;
         }
 
@@ -38,6 +50,7 @@ namespace TrackSystem {
 
         private ILayoutTrack layoutTrack;
         private ITrackFactory trackFactory;
+        private CategoricalObjectPool<BeatBlock> beatBlockPool;    // Only used to retire used beatblocks back to the pool!
 
         public void StartNewTrack(float beatsPerMinute, int trackLength, float gameTimeStartDelay) {
             layoutTrack = trackFactory.GetNewLayoutTrack();
@@ -59,6 +72,11 @@ namespace TrackSystem {
 
             // Update the active BeatBlocks.
             UpdateTime?.Invoke(trackTime_beats);
+        }
+
+        // Callback to signal when an active beatblock has completed its in-game actions and can be returned to a pool for re-use!
+        public void SignalCompletion(BeatBlock blockWhichFinished) {
+            beatBlockPool.PoolObject(blockWhichFinished, blockWhichFinished.BeatBlockTypeId);
         }
     }
 }
