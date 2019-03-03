@@ -351,7 +351,7 @@ namespace BeatBlockSystem {
         /// <param name="timerObject"></param>
         /// <returns></returns>
         public bool ActivateBeatBlock(IMasterGameTimer timerObject) {
-            timerObject.Update += UpdateActiveBeatBlockPreHit;
+            timerObject.UpdateTime += UpdateActiveBeatBlockPreHit;
             currTimerObject = timerObject;
             return AnimationGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.Speed, this.ComboFactor);
         }
@@ -362,15 +362,18 @@ namespace BeatBlockSystem {
             AnimationGameObjectController.Update(AnimationCurve.MapTimeToAnimationPercentage(trackTime));
             if (trackTime >= HitTime) {
                 HitboxGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.HitboxPlaybackSpeedScale);
-                currTimerObject.Update -= UpdateActiveBeatBlockPreHit;
-                currTimerObject.Update += UpdateActiveBeatBlockPostHit;
+                currTimerObject.UpdateTime -= UpdateActiveBeatBlockPreHit;
+                currTimerObject.UpdateTime += UpdateActiveBeatBlockPostHit;
             }
         }
         private void UpdateActiveBeatBlockPostHit(float trackTime) {
             // This should only be called when we are an active BeatBlock, and we have already triggered as 'hit'
             HitboxGameObjectController.Update(trackTime);
             if (trackTime >= HitTime + HitboxGameObjectController.HitDelayOffset + HitboxGameObjectController.HitboxDuration) {
-                currTimerObject.Update -= UpdateActiveBeatBlockPostHit;
+                // Deregister for timer updates, and tell the master timer we have finished, and can once again become inactive
+                currTimerObject.UpdateTime -= UpdateActiveBeatBlockPostHit;
+                currTimerObject.SignalCompletion(this);
+                currTimerObject = null;     // Clear this reference
                 OnLayoutTrack = false;
             }
         }
@@ -446,6 +449,7 @@ namespace BeatBlockSystem {
         bool Update(float timeIndex);
     }
     public interface IMasterGameTimer {
-        event Action<float> Update;
+        event Action<float> UpdateTime;
+        void SignalCompletion(BeatBlock blockWhichFinished);
     }
 }

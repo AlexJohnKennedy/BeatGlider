@@ -55,6 +55,7 @@ namespace TrackSystem {
                 frontOfList++;
                 i++;
             }
+            // The same BeatBlock should never be yielded twice, unless it has been re-placed (i.e. recycled) on the layout track.
         }
     }
 }
