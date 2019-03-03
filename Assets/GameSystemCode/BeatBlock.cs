@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+//using UnityEngine;
 using System.Linq;
 
 /** 
@@ -208,6 +208,13 @@ namespace BeatBlockSystem {
         /// Defined by BeatBlock Archetype - Thus, only set upon construction
         /// </summary>
         public float Speed { get; private set; }
+
+        /// <summary>
+        /// This is the time when the BeatBlock will appear in the game world. Calculated via the HitTime and Speed.
+        /// </summary>
+        public float SpawnTime {
+            get { return HitTime - Speed; }
+        }
 
         /// <summary>
         /// This controls how quickly the hitbox gameobject animation will playback, as a scale-factor of the objects normal animation speed. This should typically
