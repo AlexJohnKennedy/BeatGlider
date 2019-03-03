@@ -9,6 +9,7 @@ namespace TrackSystem {
 
     public interface ILayoutTrack {
         bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed);
+        IEnumerable<BeatBlock> GetBeatBlocksToSpawn(float trackTime);
     }
 
     /// <summary>
