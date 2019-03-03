@@ -322,10 +322,11 @@ namespace BeatBlockSystem {
         /// <param name="offsetPosition"></param>
         /// <param name="speed"></param>
         /// <returns></returns>
-        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed) {
+        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed, int layoutlayer) {
             this.HitTime = hitTime;
             this.GridPosition = offsetPosition;
             this.Speed = speed;
+            this.LayoutLayer = layoutlayer;
             this.OnLayoutTrack = true;
             return true;
         }
@@ -338,10 +339,10 @@ namespace BeatBlockSystem {
         /// <param name="speed"></param>
         /// <param name="comboVal"></param>
         /// <returns></returns>
-        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed, int comboVal) {
+        public bool PlacedOnLayoutTrack(float hitTime, GridPosition offsetPosition, float speed, int layoutLayer, int comboVal) {
             // Note that setting this property will check and throw if this BB is not comboable.
             this.ComboFactor = comboVal;
-            return PlacedOnLayoutTrack(hitTime, offsetPosition, speed);
+            return PlacedOnLayoutTrack(hitTime, offsetPosition, speed, layoutLayer);
         }
 
         /// <summary>
@@ -373,7 +374,7 @@ namespace BeatBlockSystem {
                 // Deregister for timer updates, and tell the master timer we have finished, and can once again become inactive
                 currTimerObject.UpdateTime -= UpdateActiveBeatBlockPostHit;
                 currTimerObject.SignalCompletion(this);
-                currTimerObject = null;     // Clear this reference
+                currTimerObject = null;
                 OnLayoutTrack = false;
             }
         }
