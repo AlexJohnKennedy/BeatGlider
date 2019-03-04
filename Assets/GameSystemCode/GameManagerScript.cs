@@ -68,7 +68,10 @@ namespace ConfigurationFactories {
 
     public class LayoutTrackFactory : ITrackFactory {
 
-        // TODO: This class, when a new layout track is created, should automatically generate
+        // TODO: A version of an ITrackFactory which: when a new layout track is created automatically creates associated intensity amd rhythm tracks,
+        // and links them up with an (state stored) Level generator. The idea here, is that the level generator object will have the capability to do a
+        // search algorithm on a background thread, which populates the same layer track which the game-thread is actively reading from. To do this, the level
+        // generator will be reading data from the associated intensity and rhythm tracks - which themselves might be being generating in real-time also!
 
         public ILayoutTrack GetNewLayoutTrack(float beatsPerMinute, int trackLength) {
             return new ListLayoutTrack(trackLength);
