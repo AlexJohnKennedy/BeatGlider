@@ -23,7 +23,7 @@ namespace TrackSystem {
     public interface ICategoricalObjectPool<T> {
         T GetObject(int typeId);
         bool PoolObject(T objectToDeactivate, int typeId);
-        int MaxKey { get; }
+        int NumKeys { get; }
     }
 
     /// <summary>
@@ -31,7 +31,7 @@ namespace TrackSystem {
     /// It will be responsible for managing the beat-blocks which are currently active, and activating beat-blocks from the layout-track
     /// at the appropriate time.
     /// </summary>
-    public class TrackManager : MonoBehaviour, IMasterGameTimer {
+    public class TrackManager : IMasterGameTimer {
         private bool isCurrentlyPlayingTrack;
         private float currentTrackStartTime_GameTime;   // For a track which is currently playing, this is the time in GAME TIME units, which the zero'th beat lands on.
 

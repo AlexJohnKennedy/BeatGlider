@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace TrackSystem {
 
     public interface ILayoutTrack {
-        bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed);
+        bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed, int layer);
         IEnumerable<BeatBlock> GetBeatBlocksToSpawn(float trackTime);
     }
 
@@ -30,7 +30,7 @@ namespace TrackSystem {
             frontOfList = 0;
         }
 
-        public bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed) {
+        public bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed, int layer) {
             float key = hitTime - speed;
 
             // The way this class is designed, the key should never be less than the item at the front of the list, because Blocks with
@@ -45,7 +45,7 @@ namespace TrackSystem {
                 i++;
             }
             trackData.Insert(i, block);
-            return block.PlacedOnLayoutTrack(hitTime, offset, speed);
+            return block.PlacedOnLayoutTrack(hitTime, offset, speed, layer);
         }
 
         public IEnumerable<BeatBlock> GetBeatBlocksToSpawn(float trackTime) {

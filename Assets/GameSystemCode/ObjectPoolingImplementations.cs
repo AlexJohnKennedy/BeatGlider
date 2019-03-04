@@ -9,13 +9,13 @@ namespace ObjectPoolingImplementations {
     public class SimpleCategoricalObjectPool<T> : ICategoricalObjectPool<T> {
         private IObjectPool<T>[] subPools;
 
-        public SimpleCategoricalObjectPool(int maxKey, IObjectPool<T>[] subPools) {
-            if (subPools.Length != maxKey + 1) { throw new ArgumentException("SimpleCategoricalObjectPool was passed an incorrect number of subPools; must match maxKey!"); }
-            MaxKey = maxKey;
+        public SimpleCategoricalObjectPool(int numKeys, IObjectPool<T>[] subPools) {
+            if (subPools.Length != numKeys) { throw new ArgumentException("SimpleCategoricalObjectPool was passed an incorrect number of subPools; must match maxKey!"); }
+            NumKeys = numKeys;
             this.subPools = subPools;
         }
 
-        public int MaxKey { get; }
+        public int NumKeys { get; }
 
         public T GetObject(int typeId) {
             CheckTypeId(typeId);
@@ -28,7 +28,7 @@ namespace ObjectPoolingImplementations {
         }
 
         private void CheckTypeId(int t) {
-            if (t < 0 || t > MaxKey) { throw new ArgumentOutOfRangeException("TypeId must be between 0 and MaxKey!"); }
+            if (t < 0 || t >= NumKeys) { throw new ArgumentOutOfRangeException("TypeId must be between 0 and MaxKey!"); }
         }
     }
 
@@ -41,7 +41,7 @@ namespace ObjectPoolingImplementations {
 
         // This function delegate will return us the correct 'archetype' of whatever object we are pooling! 
         // It will create new objects for us if we need it.
-        private Func<T> objectFactoryFunction;  
+        private readonly Func<T> objectFactoryFunction;  
         private Queue<T> pool;
 
         // We have to option to pre-pool (pre instantiate) object instances rather than making them on demand, by passing in
