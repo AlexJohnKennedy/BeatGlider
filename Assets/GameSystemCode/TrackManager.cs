@@ -16,11 +16,14 @@ namespace TrackSystem {
     /// A generic Object pooling interface, which allows pooling of int-identifiable 'archetypes' of some class.
     /// This allows us to pool different configurations of the same Class-type, and retrieve them accordingly. I.e., this pooling interface
     /// essentially accesses multiple sub-pools in its implementation.
+    /// 
+    /// This interface can be asked for a pooled object, or pool an object, of any archetype identified by an int which is between 0 and MaxKey.
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public interface CategoricalObjectPool<T> {
+    public interface ICategoricalObjectPool<T> {
         T GetObject(int typeId);
         bool PoolObject(T objectToDeactivate, int typeId);
+        int MaxKey { get; }
     }
 
     /// <summary>
@@ -38,7 +41,7 @@ namespace TrackSystem {
         // Event to tell active BeatBlocks about the current tracktime, in beats.
         public event Action<float> UpdateTime;
 
-        public TrackManager(ITrackFactory factoryObj, CategoricalObjectPool<BeatBlock> beatBlockPool) {
+        public TrackManager(ITrackFactory factoryObj, ICategoricalObjectPool<BeatBlock> beatBlockPool) {
             trackFactory = factoryObj;
             this.beatBlockPool = beatBlockPool;
             isCurrentlyPlayingTrack = false;
@@ -50,7 +53,7 @@ namespace TrackSystem {
 
         private ILayoutTrack layoutTrack;
         private ITrackFactory trackFactory;
-        private CategoricalObjectPool<BeatBlock> beatBlockPool;    // Only used to retire used beatblocks back to the pool!
+        private ICategoricalObjectPool<BeatBlock> beatBlockPool;    // Only used to retire used beatblocks back to the pool!
 
         public void StartNewTrack(float beatsPerMinute, int trackLength, float gameTimeStartDelay) {
             layoutTrack = trackFactory.GetNewLayoutTrack();
