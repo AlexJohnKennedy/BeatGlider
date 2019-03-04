@@ -65,6 +65,7 @@
   <ItemGroup>
     <Compile Include="Assets\GameSystemCode\BeatBlock.cs" />
     <Compile Include="Assets\GameSystemCode\GameManagerScript.cs" />
+    <Compile Include="Assets\GameSystemCode\GameObjectControllerImplementations.cs" />
     <Compile Include="Assets\GameSystemCode\LayoutTrack.cs" />
     <Compile Include="Assets\GameSystemCode\ObjectPoolingImplementations.cs" />
     <Compile Include="Assets\GameSystemCode\TrackManager.cs" />
