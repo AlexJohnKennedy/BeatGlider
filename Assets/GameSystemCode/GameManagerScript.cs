@@ -67,8 +67,11 @@ namespace ConfigurationFactories {
     }
 
     public class LayoutTrackFactory : ITrackFactory {
-        public ILayoutTrack GetNewLayoutTrack() {
-            return new ListLayoutTrack();
+
+        // TODO: This class, when a new layout track is created, should automatically generate
+
+        public ILayoutTrack GetNewLayoutTrack(float beatsPerMinute, int trackLength) {
+            return new ListLayoutTrack(trackLength);
         }
     }
 }

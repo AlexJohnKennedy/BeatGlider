@@ -9,7 +9,7 @@ using UnityEngine;
 namespace TrackSystem {
 
     public interface ITrackFactory {
-        ILayoutTrack GetNewLayoutTrack();
+        ILayoutTrack GetNewLayoutTrack(float beatsPerMinute, int trackLength);
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ namespace TrackSystem {
         private ICategoricalObjectPool<BeatBlock> beatBlockPool;    // Only used to retire used beatblocks back to the pool!
 
         public void StartNewTrack(float beatsPerMinute, int trackLength, float gameTimeStartDelay) {
-            layoutTrack = trackFactory.GetNewLayoutTrack();
+            layoutTrack = trackFactory.GetNewLayoutTrack(beatsPerMinute, trackLength);
             isCurrentlyPlayingTrack = true;
             this.beatsPerMinute = beatsPerMinute;
             this.trackLengthInBeats = trackLength;

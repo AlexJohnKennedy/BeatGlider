@@ -10,6 +10,7 @@ namespace TrackSystem {
     public interface ILayoutTrack {
         bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed, int layer);
         IEnumerable<BeatBlock> GetBeatBlocksToSpawn(float trackTime);
+        int TrackLength { get; }
     }
 
     /// <summary>
@@ -25,9 +26,12 @@ namespace TrackSystem {
         private List<BeatBlock> trackData;
         private int frontOfList;
 
-        public ListLayoutTrack() {
+        public int TrackLength { get; }    // Track length in beats
+
+        public ListLayoutTrack(int trackLength) {
             trackData = new List<BeatBlock>(MAX_POSSIBLE_BLOCKS_PER_TRACK);
             frontOfList = 0;
+            TrackLength = trackLength;
         }
 
         public bool PlaceBlockOnTrack(BeatBlock block, float hitTime, GridPosition offset, float speed, int layer) {
