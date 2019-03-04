@@ -22,15 +22,20 @@ namespace GameManagementScripts {
         // GameObjects, which are themselves monobehaviours and thus will update themselves).
         private TrackManager trackManager;
         
-        
         public void Start() {
+            // For now, we will just setup a new trackmanager when the script starts. This could optionally be done via some game-triggered call back or
+            // something.
+            SetupTrackManagerInstance();
+        }
+
+        private void SetupTrackManagerInstance() {
             /* --- Build the track manager by configuring all the concrete types and supplying the dependencies accordingly --- */
             var concreteTrackFactory = new LayoutTrackFactory();
             var beatBlockArchetypeFactory = new SimpleBeatBlockArchetypeFactory();
 
             // Build the beatblock type-sepcific object pools
             var concreteSubPools = new QueueBasedObjectPool<BeatBlock>[beatBlockArchetypeFactory.NumBeatBlockArchetypes];
-            for (int i=0; i < beatBlockArchetypeFactory.NumBeatBlockArchetypes; i++) {
+            for (int i = 0; i < beatBlockArchetypeFactory.NumBeatBlockArchetypes; i++) {
                 concreteSubPools[i] = new QueueBasedObjectPool<BeatBlock>(() => beatBlockArchetypeFactory.BuildBeatBlockArchetype(i), BEAT_BLOCK_PRE_INIT_SIZE);
             }
             var concreteBeatBlockPool = new SimpleCategoricalObjectPool<BeatBlock>(beatBlockArchetypeFactory.NumBeatBlockArchetypes, concreteSubPools);
