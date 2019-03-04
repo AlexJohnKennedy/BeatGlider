@@ -37,13 +37,38 @@ namespace ObjectPoolingImplementations {
         bool PoolObject(T objectToDeactive);
     }
 
-    public class SimpleObjectPool<T> : IObjectPool<T> {
+    public class QueueBasedObjectPool<T> : IObjectPool<T> {
+
+        // This function delegate will return us the correct 'archetype' of whatever object we are pooling! 
+        // It will create new objects for us if we need it.
+        private Func<T> objectFactoryFunction;  
+        private Queue<T> pool;
+
+        // We have to option to pre-pool (pre instantiate) object instances rather than making them on demand, by passing in
+        // a factory function, which this class can call successively to pre-create object instances and place them in the pool.
+        public QueueBasedObjectPool(Func<T> objectFactoryFunction, int numObjectsToPreinitialise) {
+            pool = new Queue<T>(numObjectsToPreinitialise + 5);     // Five spares? I don't know why i chose this randomly.
+
+            // Pre-initialise the pool!
+            for (int i=0; i < numObjectsToPreinitialise; i++) {
+                pool.Enqueue(objectFactoryFunction());
+            }
+        }
+
         public T GetObject() {
-            throw new NotImplementedException();
+            // We must instantiate an object if our pool is currently empty! This is not really desireable, since instantiations are a performance hit.
+            // But at least we won't have to garbage collect it!
+            if (pool.Count == 0) {
+                return objectFactoryFunction();
+            }
+            else {
+                return pool.Dequeue();
+            }
         }
 
         public bool PoolObject(T objectToDeactive) {
-            throw new NotImplementedException();
+            pool.Enqueue(objectToDeactive);
+            return true;
         }
     }
 }
