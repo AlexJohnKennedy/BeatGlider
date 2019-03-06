@@ -8,6 +8,8 @@ using TrackSystem;
 using ConfigurationFactories;
 using ObjectPoolingImplementations;
 using BeatBlockSystem;
+using BeatBlockSystem.AnimationCurveImplementations;
+using GameObjectControllerImplementations;
 
 namespace GameManagementScripts {
     public class GameManagerScript : MonoBehaviour {
@@ -55,14 +57,48 @@ namespace ConfigurationFactories {
     }
 
     public class SimpleBeatBlockArchetypeFactory : IBeatBlockArchetypeFactory {
-        private const int NUM_BEAT_BLOCK_ARCHETYPES = 20;   // Depends on how many we have made!
+
         public int NumBeatBlockArchetypes {
-            get { return NUM_BEAT_BLOCK_ARCHETYPES; }
+            get { return Enum.GetNames(typeof(BeatBlockArchetypeValues)).Length; }
         }
 
+        private enum BeatBlockArchetypeValues {
+            ONE_BEAT_SMALL_BLOCK = 0,
+            TWO_BEAT_SMALL_BLOCK = 1,
+            ONE_BEAT_BIG_BLOCK   = 2,
+            TWO_BEAT_BIG_BLOCK   = 3
+        }
+        private enum AnimationArchetypeValues {
+            SMALL_BLOCK = 0,
+            BIG_BLOCK   = 1
+        }
+
+        public SimpleBeatBlockArchetypeFactory() {
+
+            // TODO - finish these configs and make an additional factory pattern which creates an Animation pool, and associated gamespace occupation objects.
+            // Pairing them together because a give pool will contain the same animObj prefabs, each of which will contain the same gamespace occupation (as defined by
+            // their animations!)
+
+            // TODO - Later, we'll want a better way to configure these objects and build them. We could implement a builder pattern for setting the parameters on
+            // a BeatBlock.
+
+            // TODO - Way later, we'll want to develop configuration tools, which allow us to automatically generate the data-objects based on easier means, to facilitate
+            // easy and flexible game design.
+
+            builderFuncs = new Func<BeatBlock>[NumBeatBlockArchetypes];
+            builderFuncs[(int)BeatBlockArchetypeValues.ONE_BEAT_SMALL_BLOCK] = () => {
+                return new BeatBlock((int)BeatBlockArchetypeValues.ONE_BEAT_BIG_BLOCK,
+                    1, 1, new DefaultLinearCurve(), 5, false, 1, 1, 1f, false, hitBoxSpaceOccupation, animationSpaceOccupation,
+                    new StraightBlockController((int)AnimationArchetypeValues.SMALL_BLOCK, animationObjPool, new Vector3(0, 0, 0), new Vector3(0, 0, 20)),
+                    new HitboxGameObjectController());
+            };
+        }
+
+        private Func<BeatBlock>[] builderFuncs;
+
         public BeatBlock BuildBeatBlockArchetype(int typeId) {
-            // TODO: 9 - IMPLEMENT LOGIC TO CONFIGURE BEAT BLOCKS
-            throw new NotImplementedException();
+            if (typeId >= NumBeatBlockArchetypes || typeId < 0) throw new ArgumentOutOfRangeException();
+            return builderFuncs[typeId]();
         }
     }
 

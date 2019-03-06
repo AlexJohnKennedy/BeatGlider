@@ -119,7 +119,6 @@ namespace GameObjectControllerImplementations {
     public class HitboxGameObjectController : IHitboxGameObjectController {
         // TODO - DESIGN AND IMPLEMENT THIS!
 
-        // should this be a monobehaviour? Or wrap a monobehaviour?
         public int HitboxTypeId {
             get {
                 throw new NotImplementedException();
