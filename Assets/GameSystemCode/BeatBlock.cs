@@ -358,9 +358,13 @@ namespace BeatBlockSystem {
         }
         private IMasterGameTimer currTimerObject;
 
+        private float GetLifeTimeRatio(float trackTime) {
+            return (trackTime - SpawnTime) / Speed;
+        }
+
         private void UpdateActiveBeatBlockPreHit(float trackTime) {
             // This should only be called when we are an active BeatBlock, and we have not yet triggered as 'hit'
-            AnimationGameObjectController.Update(AnimationCurve.MapTimeToAnimationPercentage(trackTime));
+            AnimationGameObjectController.Update(AnimationCurve.MapTimeToAnimationPercentage(GetLifeTimeRatio(trackTime)));
             if (trackTime >= HitTime) {
                 HitboxGameObjectController.StartAnimation(this.GridPosition, this.SizeScalingFactor, this.HitboxPlaybackSpeedScale);
                 currTimerObject.UpdateTime -= UpdateActiveBeatBlockPreHit;
