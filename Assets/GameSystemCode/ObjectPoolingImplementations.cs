@@ -6,6 +6,56 @@ using System.Threading.Tasks;
 using TrackSystem;
 
 namespace ObjectPoolingImplementations {
+
+    public class SharableSubpoolCategoricalObjectPool<T> : ICategoricalObjectPool<T> {
+        private IObjectPool<T>[] subPools;
+        private IDictionary<int, int> keyMap;
+
+        public SharableSubpoolCategoricalObjectPool(IDictionary<int, int> keyMap, IObjectPool<T>[] subPools) {
+            // Make sure the size of the subpools array matches the distinct number of values in the map.
+            // Make sure the max value in the map is not outside the range of the subpools array
+            // Make sure there are no negative keys.
+            // If all three are met, then the output values of the map will be [0, 1, 2, ... n] where n is the last valid index into the subPools array
+            if (keyMap.Values.Distinct().Count() != subPools.Length || keyMap.Values.Max() >= subPools.Length || keyMap.Values.Min() < 0) {
+                throw new ArgumentException("Malformed subPools or keyMap objects (or both) passed to a SharableSubpoolCategoricalObjectPool constructor");
+            }
+            this.keyMap = keyMap;
+            this.subPools = subPools;
+            NumKeys = subPools.Length;
+        }
+
+        public SharableSubpoolCategoricalObjectPool(HashSet<int>[] inputValueSets, IObjectPool<T>[] subPools) {
+            if (inputValueSets.Length != subPools.Length) { throw new ArgumentException("SharableSubpoolCategoricalObjectPool was passed bad arguments in constructor"); }
+            keyMap = new Dictionary<int, int>();
+            for (int i=0; i < inputValueSets.Length; i++) {
+                if (inputValueSets[i].Count == 0 || inputValueSets[i].Count >= subPools.Length) {
+                    throw new ArgumentException("SharableSubpoolCategoricalObjectPool was passed bad arguments in constructor");
+                }
+                foreach (int input in inputValueSets[i]) {
+                    keyMap.Add(input, i);
+                }
+            }
+            this.subPools = subPools;
+            NumKeys = subPools.Length;
+        }
+
+        public int NumKeys { get; }
+
+        public T GetObject(int typeId) {
+            CheckTypeId(typeId);
+            return subPools[keyMap[typeId]].GetObject();
+        }
+
+        public bool PoolObject(T objectToDeactivate, int typeId) {
+            CheckTypeId(typeId);
+            return subPools[keyMap[typeId]].PoolObject(objectToDeactivate);
+        }
+
+        private void CheckTypeId(int t) {
+            if (t < 0 || t >= NumKeys) { throw new ArgumentOutOfRangeException("TypeId must be between 0 and MaxKey!"); }
+        }
+    }
+
     public class SimpleCategoricalObjectPool<T> : ICategoricalObjectPool<T> {
         private IObjectPool<T>[] subPools;
 
