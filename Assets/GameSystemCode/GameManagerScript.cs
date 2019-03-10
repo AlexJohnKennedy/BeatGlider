@@ -29,22 +29,20 @@ namespace GameManagementScripts {
         private TrackManager trackManager;
         
         public void Start() {
-            // For now, we will just setup a new trackmanager when the script starts. This could optionally be invoked via some game-triggered call back in future
-            SetupTrackManagerInstance();
-
             // Set up a mapping for each AnimationObject type, to the linked prefabs. This allows our AnimationObjectController Factories to access the prefab type.
             Dictionary<int, AnimationObject> animMap = new Dictionary<int, AnimationObject> {
                 { AnimObjArchetypes.SMALL_BLOCK, SmallBlockAnimationObjectPrefab },
                 { AnimObjArchetypes.BIG_BLOCK, BigBlockAnimationObjectPrefab }
             };
-
-            // Construct the animation archetype factory
+            
+            // For now, we will just setup a new trackmanager when the script starts. This could optionally be invoked via some game-triggered call back in future
+            SetupTrackManagerInstance(animMap, ANIMATION_OBJ_PRE_INIT_SIZE);
         }
 
-        private void SetupTrackManagerInstance() {
+        private void SetupTrackManagerInstance(Dictionary<int, AnimationObject> prefabMap, int animpreinitNum) {
             /* --- Build the track manager by configuring all the concrete types and supplying the dependencies accordingly --- */
             var concreteTrackFactory = new LayoutTrackFactory();
-            var beatBlockArchetypeFactory = new SimpleBeatBlockArchetypeFactory();
+            var beatBlockArchetypeFactory = new SimpleBeatBlockArchetypeFactory(prefabMap, animpreinitNum);
 
             // Build the beatblock type-sepcific object pools
             var concreteSubPools = new QueueBasedObjectPool<BeatBlock>[beatBlockArchetypeFactory.NumArchetypes];
@@ -93,7 +91,7 @@ namespace ConfigurationFactories {
     // Map named BeatBlock archetypes to AnimCurve, AnimObj, and HitboxObj archetypes -------------------------------------------
     static class ArchetypeMappings {
         public static int AnimCurve(int beatBlockType) { return animCurves[beatBlockType]; }
-        private static Dictionary<int, int> animCurves = new Dictionary<int, int> {
+        public static Dictionary<int, int> animCurves = new Dictionary<int, int> {
             { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, AnimCurveArchetypes.LINEAR_DEFAULT },
             { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, AnimCurveArchetypes.LINEAR_DEFAULT },
             { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, AnimCurveArchetypes.QUADRATIC_DEFAULT },
@@ -101,7 +99,7 @@ namespace ConfigurationFactories {
         };
 
         public static int AnimObj(int beatBlockType) { return animObjs[beatBlockType]; }
-        private static Dictionary<int, int> animObjs = new Dictionary<int, int> {
+        public static Dictionary<int, int> animObjs = new Dictionary<int, int> {
             { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
             { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
             { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, AnimObjArchetypes.BIG_BLOCK },
@@ -109,7 +107,7 @@ namespace ConfigurationFactories {
         };
 
         public static int HitboxObj(int beatBlockType) { return hbObjs[beatBlockType]; }
-        private static Dictionary<int, int> hbObjs = new Dictionary<int, int> {
+        public static Dictionary<int, int> hbObjs = new Dictionary<int, int> {
             { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, HitboxObjArchetypes.SMALL_SQUARE },
             { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, HitboxObjArchetypes.SMALL_SQUARE },
             { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, HitboxObjArchetypes.BIG_SQUARE },
@@ -328,14 +326,7 @@ namespace ConfigurationFactories {
                     }, preinitNum
                 );
             }
-            sharedPool = new SharableSubpoolCategoricalObjectPool<AnimationObject>(
-                new Dictionary<int, int> {
-                    { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
-                    { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
-                    { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, AnimObjArchetypes.BIG_BLOCK },
-                    { BeatBlockArchetypes.TWO_BEAT_BIG_BLOCK, AnimObjArchetypes.BIG_BLOCK }
-                }, pools
-            );
+            sharedPool = new SharableSubpoolCategoricalObjectPool<AnimationObject>(ArchetypeMappings.animObjs, pools);
         }
 
         public IAnimationGameObjectController BuildArchetype(int typeId) {
@@ -344,7 +335,7 @@ namespace ConfigurationFactories {
         }
 
         public GameSpaceOccupationOverTimeTemplate GetTemplate(int typeId) {
-            throw new NotImplementedException();
+            // TODO: Define templates for the object occupation objects
         }
     }
 
@@ -380,14 +371,8 @@ namespace ConfigurationFactories {
             builder = new BeatBlockBuilder_Recyclable();
             animCurveFactory = new AnimationCurveArchetypeFactory();
             animObjFactory = new AnimationGameObjectArchetypeFactory(animPrefabMap, animPreinitNum);
+            // TODO: Implement HitboxGameObjectArchetypeFactory
             hitboxObjFactory = new HitboxGameObjectArchetypeFactory();
-
-            // TODO - finish these configs and make an additional factory pattern which creates an Animation pool, and associated gamespace occupation objects.
-            // Pairing them together because a given pool will contain the same animObj prefabs, each of which will contain the same gamespace occupation (as defined by
-            // their animations!)
-
-            // TODO - Way later, we'll want to develop configuration tools, which allow us to automatically generate the data-objects based on easier means, to facilitate
-            // easy and flexible game design.
 
             builderFuncs = new Func<BeatBlock>[NumArchetypes];
             builderFuncs[BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK] = () => {
@@ -485,14 +470,6 @@ namespace ConfigurationFactories {
                     .HitBoxGameObjectController(hitboxObjFactory.BuildArchetype(ArchetypeMappings.HitboxObj(blockType)));
 
                 return builder.Build();
-            };
-
-
-            builderFuncs[BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK] = () => {
-                return new BeatBlock(BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK,
-                    1, 1, new DefaultLinearCurve(), 5, false, 1, 1, 1f, false, hitBoxSpaceOccupation, animationSpaceOccupation,
-                    new StraightBlockController((int)AnimationArchetypeValues.SMALL_BLOCK, animationObjPool, new Vector3(0, 0, 0), new Vector3(0, 0, 20)),
-                    new HitboxGameObjectController());
             };
         }
 
