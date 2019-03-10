@@ -10,20 +10,20 @@ using System.Threading.Tasks;
 namespace GameObjectControllerImplementations {
 
     // Basic type to represent any object which can be controlled by an AnimationGameObjectController.
-    public interface IAnimationObject {
-        void PlaceAtWorldSpace(Vector3 spawnPosition);
-        void SetAnimationDirection(Vector3 animationDirection);
-        void ActivateGameObject();
-        void DeactivateGameObject();
+    public abstract class AnimationObject : MonoBehaviour {
+        public abstract void PlaceAtWorldSpace(Vector3 spawnPosition);
+        public abstract void SetAnimationDirection(Vector3 animationDirection);
+        public abstract void ActivateGameObject();
+        public abstract void DeactivateGameObject();
 
-        void Update(float time);
+        public abstract void UpdateObj(float time);
     }
 
-    public class ScriptedAnimationObject : MonoBehaviour, IAnimationObject {
+    public class ScriptedAnimationObject : AnimationObject {
 
         private float? zAxisStartValue;
 
-        public void ActivateGameObject() {
+        public override void ActivateGameObject() {
             if (!zAxisStartValue.HasValue) {
                 throw new InvalidOperationException("Tried at activate a this gameobject before the spawn position was set. This is not allowed");
             }
@@ -32,23 +32,23 @@ namespace GameObjectControllerImplementations {
             this.gameObject.SetActive(true);
         }
 
-        public void DeactivateGameObject() {
+        public override void DeactivateGameObject() {
             zAxisStartValue = null;
 
             // Set the gameObject to which this script is attached to 'inactive'
             this.gameObject.SetActive(false);
         }
 
-        public void PlaceAtWorldSpace(Vector3 spawnPosition) {
+        public override void PlaceAtWorldSpace(Vector3 spawnPosition) {
             this.transform.position = spawnPosition;
             zAxisStartValue = spawnPosition.z;
         }
 
-        public void SetAnimationDirection(Vector3 animationDirection) {
+        public override void SetAnimationDirection(Vector3 animationDirection) {
             this.transform.forward = animationDirection;
         }
 
-        public void Update(float time) {
+        public override void UpdateObj(float time) {
             // Linearly fly towards 0 on the Z axis.
             // At time zero, the z axis of this game object's position will be (spawnPosition.z)
             // At time one, the z axis of this game object's position will be 0.
@@ -67,14 +67,14 @@ namespace GameObjectControllerImplementations {
         
         public int AnimationTypeId { get; }
 
-        private readonly ICategoricalObjectPool<IAnimationObject> pool;
+        private readonly ICategoricalObjectPool<AnimationObject> pool;
         private Vector3 playerPlaneCentrePoint;
         private Vector3 backPlaneCentrePoint;
         private Vector3 animationDirection;
         private bool isActive;
-        private IAnimationObject currObject;
+        private AnimationObject currObject;
 
-        public StraightBlockController(int typeId, ICategoricalObjectPool<IAnimationObject> pool, Vector3 playerPlaneCentrePoint, Vector3 backPlaneCentrePoint) {
+        public StraightBlockController(int typeId, ICategoricalObjectPool<AnimationObject> pool, Vector3 playerPlaneCentrePoint, Vector3 backPlaneCentrePoint) {
             this.AnimationTypeId = typeId;
             this.pool = pool;
             this.playerPlaneCentrePoint = playerPlaneCentrePoint;
@@ -102,7 +102,7 @@ namespace GameObjectControllerImplementations {
         }
 
         public bool Update(float timeIndex) {
-            currObject.Update(timeIndex);
+            currObject.UpdateObj(timeIndex);
             if (timeIndex >= 1f) {
                 // We are done! We should deactivate this object and return it the pool.
                 currObject.DeactivateGameObject();
