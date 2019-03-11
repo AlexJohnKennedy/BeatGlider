@@ -9,56 +9,6 @@ using System.Threading.Tasks;
 
 namespace GameObjectControllerImplementations {
 
-    // Basic type to represent any object which can be controlled by an AnimationGameObjectController.
-    public abstract class AnimationObject : MonoBehaviour {
-        public abstract void PlaceAtWorldSpace(Vector3 spawnPosition);
-        public abstract void SetAnimationDirection(Vector3 animationDirection);
-        public abstract void ActivateGameObject();
-        public abstract void DeactivateGameObject();
-
-        public abstract void UpdateObj(float time);
-    }
-
-    public class ScriptedAnimationObject : AnimationObject {
-
-        private float? zAxisStartValue;
-
-        public override void ActivateGameObject() {
-            if (!zAxisStartValue.HasValue) {
-                throw new InvalidOperationException("Tried at activate a this gameobject before the spawn position was set. This is not allowed");
-            }
-
-            // Set the gameObject to which this script is attached to 'active'
-            this.gameObject.SetActive(true);
-        }
-
-        public override void DeactivateGameObject() {
-            zAxisStartValue = null;
-
-            // Set the gameObject to which this script is attached to 'inactive'
-            this.gameObject.SetActive(false);
-        }
-
-        public override void PlaceAtWorldSpace(Vector3 spawnPosition) {
-            this.transform.position = spawnPosition;
-            zAxisStartValue = spawnPosition.z;
-        }
-
-        public override void SetAnimationDirection(Vector3 animationDirection) {
-            this.transform.forward = animationDirection;
-        }
-
-        public override void UpdateObj(float time) {
-            // Linearly fly towards 0 on the Z axis.
-            // At time zero, the z axis of this game object's position will be (spawnPosition.z)
-            // At time one, the z axis of this game object's position will be 0.
-
-            // We expect  (0 <= t <= 1)
-            float newZpos = zAxisStartValue.Value - zAxisStartValue.Value * time;
-            this.transform.position = new Vector3(transform.position.x, transform.position.y, newZpos);
-        }
-    }
-
     /// <summary>
     /// This class is a simple implementation of an AnimationGameObjectController, which is responsbile for controlling the animation of a
     /// given beat block! It will acquire an AnimationObject from a pool, when needed, and control its animation until the BeatBlock has hit!
@@ -119,23 +69,26 @@ namespace GameObjectControllerImplementations {
     public class HitboxGameObjectController : IHitboxGameObjectController {
         // TODO - DESIGN AND IMPLEMENT THIS!
 
-        public int HitboxTypeId {
-            get {
-                throw new NotImplementedException();
-            }
+        private readonly ICategoricalObjectPool<HitboxObject> pool;
+        private Vector2 playerPlaneCentrePoint;
+        private bool isActive;
+        private HitboxObject currObject;
+
+        public HitboxGameObjectController(int typeId, ICategoricalObjectPool<HitboxObject> pool, Vector2 playerPlaneCentrePoint, float hitDelay, float hitboxDuration) {
+            this.HitboxTypeId = typeId;
+            this.HitDelayOffset = hitDelay;
+            this.pool = pool;
+            this.playerPlaneCentrePoint = playerPlaneCentrePoint;
+            currObject = null;
+            isActive = false;
+            this.HitboxDuration = hitboxDuration;
         }
 
-        public float HitDelayOffset {
-            get {
-                throw new NotImplementedException();
-            }
-        }
+        public int HitboxTypeId { get; }
 
-        public float HitboxDuration {
-            get {
-                throw new NotImplementedException();
-            }
-        }
+        public float HitDelayOffset { get; }
+
+        public float HitboxDuration { get; }
 
         public bool StartAnimation(GridPosition offset, float sizeScalingFactor, float playbackSpeedScalingFactor) {
             throw new NotImplementedException();

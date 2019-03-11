@@ -373,7 +373,7 @@ namespace BeatBlockSystem {
         }
         private void UpdateActiveBeatBlockPostHit(float trackTime) {
             // This should only be called when we are an active BeatBlock, and we have already triggered as 'hit'
-            HitboxGameObjectController.Update(trackTime);
+            HitboxGameObjectController.Update(trackTime - HitTime);
             if (trackTime >= HitTime + HitboxGameObjectController.HitDelayOffset + HitboxGameObjectController.HitboxDuration) {
                 // Deregister for timer updates, and tell the master timer we have finished, and can once again become inactive
                 currTimerObject.UpdateTime -= UpdateActiveBeatBlockPostHit;
@@ -445,7 +445,7 @@ namespace BeatBlockSystem {
         /// <summary>
         /// Called every update if and only if the hitbox object is already alive.
         /// Note that the hitbox GameObject will update itself through the use of the Unity Engine. This update call is just to constantly inform this Controller
-        /// object what the current track time is, in beats.
+        /// object how many beats BEYOND the hittime the current track time is
         /// This method should also 'terminate' the object (return it to pool and deactivate it) if it is
         /// called with a timeIndex greater than or equal to (1 + HitDelayOffset + HitboxDuration)
         /// </summary>

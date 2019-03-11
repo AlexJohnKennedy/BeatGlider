@@ -11,53 +11,6 @@ using BeatBlockSystem;
 using BeatBlockSystem.AnimationCurveImplementations;
 using GameObjectControllerImplementations;
 
-namespace GameManagementScripts {
-    public class GameManagerScript : MonoBehaviour {
-
-        private const int BEAT_BLOCK_PRE_INIT_SIZE = 50;    // This will be the number of BeatBlocks we pre-initialise for each type, in the object pools
-        private const int ANIMATION_OBJ_PRE_INIT_SIZE = 10; // This will be the number of animation gameobjects we pre-initialise for each type, in the object pools
-        private const int HITBOX_OBJ_PRE_INIT_SIZE = 10;    // This will be the number of hitbox gameobjects we pre-initialise for each type, in the object pools
-
-        // Publicly in-editor settable prefabs, which will allow us to link which Unity prefab elements relate to which AnimObj archetype id's
-        public AnimationObject BigBlockAnimationObjectPrefab;
-        public AnimationObject SmallBlockAnimationObjectPrefab;
-
-        // This script will act as the highest level controller object, which links to the Unity engine, and calls upon the
-        // object factories to configure the logic objects, set everything up, and initiate it!
-        // It will also serve as the update-flow entry point for all the objects in the system (except the low-level animation
-        // GameObjects, which are themselves monobehaviours and thus will update themselves).
-        private TrackManager trackManager;
-        
-        public void Start() {
-            // Set up a mapping for each AnimationObject type, to the linked prefabs. This allows our AnimationObjectController Factories to access the prefab type.
-            Dictionary<int, AnimationObject> animMap = new Dictionary<int, AnimationObject> {
-                { AnimObjArchetypes.SMALL_BLOCK, SmallBlockAnimationObjectPrefab },
-                { AnimObjArchetypes.BIG_BLOCK, BigBlockAnimationObjectPrefab }
-            };
-            
-            // For now, we will just setup a new trackmanager when the script starts. This could optionally be invoked via some game-triggered call back in future
-            SetupTrackManagerInstance(animMap, ANIMATION_OBJ_PRE_INIT_SIZE);
-        }
-
-        private void SetupTrackManagerInstance(Dictionary<int, AnimationObject> prefabMap, int animpreinitNum) {
-            /* --- Build the track manager by configuring all the concrete types and supplying the dependencies accordingly --- */
-            var concreteTrackFactory = new LayoutTrackFactory();
-            var beatBlockArchetypeFactory = new SimpleBeatBlockArchetypeFactory(prefabMap, animpreinitNum);
-
-            // Build the beatblock type-sepcific object pools
-            var concreteSubPools = new QueueBasedObjectPool<BeatBlock>[beatBlockArchetypeFactory.NumArchetypes];
-            for (int i = 0; i < beatBlockArchetypeFactory.NumArchetypes; i++) {
-                concreteSubPools[i] = new QueueBasedObjectPool<BeatBlock>(() => beatBlockArchetypeFactory.BuildArchetype(i), BEAT_BLOCK_PRE_INIT_SIZE);
-            }
-            var concreteBeatBlockPool = new SimpleCategoricalObjectPool<BeatBlock>(beatBlockArchetypeFactory.NumArchetypes, concreteSubPools);
-
-            // Instantiate the track manager!
-            trackManager = new TrackManager(concreteTrackFactory, concreteBeatBlockPool);
-        }
-
-    }
-}
-
 namespace ConfigurationFactories {
 
     // Associate names for the Archetypes IDs so configuration is easier --------------------------------------------------------
@@ -75,18 +28,6 @@ namespace ConfigurationFactories {
 
         public static int Length { get { return 2; } }
     }
-    static class AnimObjArchetypes {
-        public const int SMALL_BLOCK = 0;
-        public const int BIG_BLOCK = 1;
-
-        public static int Length { get { return 2; } }
-    }
-    static class HitboxObjArchetypes {
-        public const int SMALL_SQUARE = 0;
-        public const int BIG_SQUARE = 1;
-
-        public static int Length { get { return 2; } }
-    }
 
     // Map named BeatBlock archetypes to AnimCurve, AnimObj, and HitboxObj archetypes -------------------------------------------
     static class ArchetypeMappings {
@@ -97,24 +38,7 @@ namespace ConfigurationFactories {
             { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, AnimCurveArchetypes.QUADRATIC_DEFAULT },
             { BeatBlockArchetypes.TWO_BEAT_BIG_BLOCK, AnimCurveArchetypes.QUADRATIC_DEFAULT }
         };
-
-        public static int AnimObj(int beatBlockType) { return animObjs[beatBlockType]; }
-        public static Dictionary<int, int> animObjs = new Dictionary<int, int> {
-            { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
-            { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, AnimObjArchetypes.SMALL_BLOCK },
-            { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, AnimObjArchetypes.BIG_BLOCK },
-            { BeatBlockArchetypes.TWO_BEAT_BIG_BLOCK, AnimObjArchetypes.BIG_BLOCK }
-        };
-
-        public static int HitboxObj(int beatBlockType) { return hbObjs[beatBlockType]; }
-        public static Dictionary<int, int> hbObjs = new Dictionary<int, int> {
-            { BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK, HitboxObjArchetypes.SMALL_SQUARE },
-            { BeatBlockArchetypes.TWO_BEAT_SMALL_BLOCK, HitboxObjArchetypes.SMALL_SQUARE },
-            { BeatBlockArchetypes.ONE_BEAT_BIG_BLOCK, HitboxObjArchetypes.BIG_SQUARE },
-            { BeatBlockArchetypes.TWO_BEAT_BIG_BLOCK, HitboxObjArchetypes.BIG_SQUARE }
-        };
     }
-
 
     // Builder Type for BeatBlocks ----------------------------------------------------------------------------------------------
     public class BeatBlockBuilder_Recyclable {
@@ -280,9 +204,6 @@ namespace ConfigurationFactories {
         int NumArchetypes { get; }
         T BuildArchetype(int typeId);
     }
-    public interface IGameSpaceTemplateFactory<T> : IArchetypeFactory<T> {
-        GameSpaceOccupationOverTimeTemplate GetTemplate(int typeId); 
-    }
 
     public class AnimationCurveArchetypeFactory : IArchetypeFactory<IAnimationCurve> {
         
@@ -304,58 +225,6 @@ namespace ConfigurationFactories {
         }
     }
 
-    public class AnimationGameObjectArchetypeFactory : IGameSpaceTemplateFactory<IAnimationGameObjectController> {
-
-        public int NumArchetypes { get { return AnimObjArchetypes.Length; } }
-
-        private GameSpaceOccupationOverTimeTemplate[] templates;
-        private ICategoricalObjectPool<AnimationObject> sharedPool;
-
-        public AnimationGameObjectArchetypeFactory(Dictionary<int, AnimationObject> prefabMap, int preinitNum) {
-            templates = new GameSpaceOccupationOverTimeTemplate[NumArchetypes];
-
-            // Create the Categorical object pool which the AnimationObjectControllers will source their objects from.
-            IObjectPool<AnimationObject>[] pools = new IObjectPool<AnimationObject>[AnimObjArchetypes.Length];
-            for (int i=0; i < AnimObjArchetypes.Length; i++) {
-                pools[i] = new QueueBasedObjectPool<AnimationObject>(
-                    // We must instantiate a clone of the prefab instance as part of the contruction function, and make sure it starts off deactivated
-                    () => {
-                        var toRet = UnityEngine.Object.Instantiate(prefabMap[i]);
-                        toRet.gameObject.SetActive(false);
-                        return toRet;
-                    }, preinitNum
-                );
-            }
-            sharedPool = new SharableSubpoolCategoricalObjectPool<AnimationObject>(ArchetypeMappings.animObjs, pools);
-        }
-
-        public IAnimationGameObjectController BuildArchetype(int typeId) {
-            if (typeId >= NumArchetypes || typeId < 0) throw new ArgumentOutOfRangeException();
-            return new StraightBlockController(typeId, sharedPool, new Vector3(0, 0, 0), new Vector3(0, 0, 20));
-        }
-
-        public GameSpaceOccupationOverTimeTemplate GetTemplate(int typeId) {
-            // TODO: Define templates for the object occupation objects
-        }
-    }
-
-    public class HitboxGameObjectArchetypeFactory : IGameSpaceTemplateFactory<IHitboxGameObjectController> {
-        // TODO
-        public int NumArchetypes {
-            get {
-                throw new NotImplementedException();
-            }
-        }
-
-        public IHitboxGameObjectController BuildArchetype(int typeId) {
-            throw new NotImplementedException();
-        }
-
-        public GameSpaceOccupationOverTimeTemplate GetTemplate(int typeId) {
-            throw new NotImplementedException();
-        }
-    }
-
     public class SimpleBeatBlockArchetypeFactory : IArchetypeFactory<BeatBlock> {
 
         public int NumArchetypes {
@@ -364,15 +233,14 @@ namespace ConfigurationFactories {
 
         private BeatBlockBuilder_Recyclable builder;
         private readonly AnimationCurveArchetypeFactory animCurveFactory;
-        private readonly AnimationGameObjectArchetypeFactory animObjFactory;
-        private readonly HitboxGameObjectArchetypeFactory hitboxObjFactory;
 
-        public SimpleBeatBlockArchetypeFactory(Dictionary<int, AnimationObject> animPrefabMap, int animPreinitNum) {
+        public SimpleBeatBlockArchetypeFactory(IArchetypeFactory<IAnimationGameObjectController> animControllerFactory, 
+                                               IArchetypeFactory<IHitboxGameObjectController> hitboxControllerFactory,
+                                               IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> animOccupationFactory,
+                                               IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> hitboxOccupationFactory) {
+
             builder = new BeatBlockBuilder_Recyclable();
             animCurveFactory = new AnimationCurveArchetypeFactory();
-            animObjFactory = new AnimationGameObjectArchetypeFactory(animPrefabMap, animPreinitNum);
-            // TODO: Implement HitboxGameObjectArchetypeFactory
-            hitboxObjFactory = new HitboxGameObjectArchetypeFactory();
 
             builderFuncs = new Func<BeatBlock>[NumArchetypes];
             builderFuncs[BeatBlockArchetypes.ONE_BEAT_SMALL_BLOCK] = () => {
@@ -392,10 +260,10 @@ namespace ConfigurationFactories {
                     .LayoutLayer(1)
                     .SizeScalable(false)
                     .SizeScalingFactor(1)
-                    .HitBoxSpaceOccupation(hitboxObjFactory.GetTemplate(ArchetypeMappings.HitboxObj(blockType)))
-                    .AnimationSpaceOccupation(animObjFactory.GetTemplate(ArchetypeMappings.AnimObj(blockType)))
-                    .AnimationGameObjectController(animObjFactory.BuildArchetype(ArchetypeMappings.AnimObj(blockType)))
-                    .HitBoxGameObjectController(hitboxObjFactory.BuildArchetype(ArchetypeMappings.HitboxObj(blockType)));
+                    .HitBoxSpaceOccupation(hitboxOccupationFactory.BuildArchetype(blockType))
+                    .AnimationSpaceOccupation(animOccupationFactory.BuildArchetype(blockType))
+                    .AnimationGameObjectController(animControllerFactory.BuildArchetype(blockType))
+                    .HitBoxGameObjectController(hitboxControllerFactory.BuildArchetype(blockType));
 
                 return builder.Build();
             };
@@ -416,10 +284,10 @@ namespace ConfigurationFactories {
                     .LayoutLayer(1)
                     .SizeScalable(false)
                     .SizeScalingFactor(1)
-                    .HitBoxSpaceOccupation(hitboxObjFactory.GetTemplate(ArchetypeMappings.HitboxObj(blockType)))
-                    .AnimationSpaceOccupation(animObjFactory.GetTemplate(ArchetypeMappings.AnimObj(blockType)))
-                    .AnimationGameObjectController(animObjFactory.BuildArchetype(ArchetypeMappings.AnimObj(blockType)))
-                    .HitBoxGameObjectController(hitboxObjFactory.BuildArchetype(ArchetypeMappings.HitboxObj(blockType)));
+                    .HitBoxSpaceOccupation(hitboxOccupationFactory.BuildArchetype(blockType))
+                    .AnimationSpaceOccupation(animOccupationFactory.BuildArchetype(blockType))
+                    .AnimationGameObjectController(animControllerFactory.BuildArchetype(blockType))
+                    .HitBoxGameObjectController(hitboxControllerFactory.BuildArchetype(blockType));
 
                 return builder.Build();
             };
@@ -440,10 +308,10 @@ namespace ConfigurationFactories {
                     .LayoutLayer(1)
                     .SizeScalable(false)
                     .SizeScalingFactor(1)
-                    .HitBoxSpaceOccupation(hitboxObjFactory.GetTemplate(ArchetypeMappings.HitboxObj(blockType)))
-                    .AnimationSpaceOccupation(animObjFactory.GetTemplate(ArchetypeMappings.AnimObj(blockType)))
-                    .AnimationGameObjectController(animObjFactory.BuildArchetype(ArchetypeMappings.AnimObj(blockType)))
-                    .HitBoxGameObjectController(hitboxObjFactory.BuildArchetype(ArchetypeMappings.HitboxObj(blockType)));
+                    .HitBoxSpaceOccupation(hitboxOccupationFactory.BuildArchetype(blockType))
+                    .AnimationSpaceOccupation(animOccupationFactory.BuildArchetype(blockType))
+                    .AnimationGameObjectController(animControllerFactory.BuildArchetype(blockType))
+                    .HitBoxGameObjectController(hitboxControllerFactory.BuildArchetype(blockType));
 
                 return builder.Build();
             };
@@ -464,10 +332,10 @@ namespace ConfigurationFactories {
                     .LayoutLayer(1)
                     .SizeScalable(false)
                     .SizeScalingFactor(1)
-                    .HitBoxSpaceOccupation(hitboxObjFactory.GetTemplate(ArchetypeMappings.HitboxObj(blockType)))
-                    .AnimationSpaceOccupation(animObjFactory.GetTemplate(ArchetypeMappings.AnimObj(blockType)))
-                    .AnimationGameObjectController(animObjFactory.BuildArchetype(ArchetypeMappings.AnimObj(blockType)))
-                    .HitBoxGameObjectController(hitboxObjFactory.BuildArchetype(ArchetypeMappings.HitboxObj(blockType)));
+                    .HitBoxSpaceOccupation(hitboxOccupationFactory.BuildArchetype(blockType))
+                    .AnimationSpaceOccupation(animOccupationFactory.BuildArchetype(blockType))
+                    .AnimationGameObjectController(animControllerFactory.BuildArchetype(blockType))
+                    .HitBoxGameObjectController(hitboxControllerFactory.BuildArchetype(blockType));
 
                 return builder.Build();
             };
