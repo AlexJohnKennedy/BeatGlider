@@ -13,6 +13,14 @@ using GameObjectControllerImplementations;
 
 namespace ConfigurationScripts {
 
+    public class DUMMYFACTORY<T> : IArchetypeFactory<T> {
+        public int NumArchetypes { get { return 9999; } }
+
+        public T BuildArchetype(int typeId) {
+            return default(T);
+        }
+    }
+
     public class AnimationControllerFactory : IArchetypeFactory<IAnimationGameObjectController> {
         private Dictionary<int, int> beatBlockToAnimationTypeMapping;
         private Dictionary<int, IAnimControllerConfigurationScript> animationArcheTypeToControllerFactoryFunctionMapping;
@@ -34,6 +42,27 @@ namespace ConfigurationScripts {
         }
     }
 
+    public class HitboxControllerFactory : IArchetypeFactory<IHitboxGameObjectController> {
+        private Dictionary<int, int> beatBlockToHitboxTypeMapping;
+        private Dictionary<int, IHitboxControllerConfigurationScript> hbArcheTypeToControllerFactoryFunctionMapping;
+        private ICategoricalObjectPool<HitboxObject> pool;
+
+        public HitboxControllerFactory(Dictionary<int, int> beatBlockToAnimationTypeMapping, Dictionary<int, IHitboxControllerConfigurationScript> hbArcheTypeToControllerFactoryFunctionMapping, ICategoricalObjectPool<HitboxObject> pool) {
+            this.beatBlockToHitboxTypeMapping = beatBlockToAnimationTypeMapping;
+            this.hbArcheTypeToControllerFactoryFunctionMapping = hbArcheTypeToControllerFactoryFunctionMapping;
+            this.pool = pool;
+        }
+
+        public int NumArchetypes {
+            get { return hbArcheTypeToControllerFactoryFunctionMapping.Keys.Count; }
+        }
+
+        public IHitboxGameObjectController BuildArchetype(int beatBlockArchetypeId) {
+            var configObject = hbArcheTypeToControllerFactoryFunctionMapping[beatBlockToHitboxTypeMapping[beatBlockArchetypeId]];
+            return configObject.CreateController(beatBlockToHitboxTypeMapping[beatBlockArchetypeId], pool);
+        }
+    }
+
     public class GameManagerScript : MonoBehaviour {
 
         private const int BEAT_BLOCK_PRE_INIT_SIZE = 50;    // This will be the number of BeatBlocks we pre-initialise for each type, in the object pools
@@ -48,11 +77,21 @@ namespace ConfigurationScripts {
 
         private IArchetypeFactory<IAnimationGameObjectController> animControllerFactory;
         private IArchetypeFactory<IHitboxGameObjectController> hbControllerFactory;
-        private IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> animOccupationFactory;
-        private IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> hbOccupationFactory;
+        private IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> animOccupationFactory = new DUMMYFACTORY<GameSpaceOccupationOverTimeTemplate>();
+        private IArchetypeFactory<GameSpaceOccupationOverTimeTemplate> hbOccupationFactory = new DUMMYFACTORY<GameSpaceOccupationOverTimeTemplate>();
 
         private IObjectPool<AnimationObject> MakeNewPool(AnimationObject prefab) {
             return new QueueBasedObjectPool<AnimationObject>(
+                // We must instantiate a clone of the prefab instance as part of the contruction function, and make sure it starts off deactivated
+                () => {
+                    var toRet = Instantiate(prefab);
+                    toRet.gameObject.SetActive(false);
+                    return toRet;
+                }, ANIMATION_OBJ_PRE_INIT_SIZE
+            );
+        }
+        private IObjectPool<HitboxObject> MakeNewPool(HitboxObject prefab) {
+            return new QueueBasedObjectPool<HitboxObject>(
                 // We must instantiate a clone of the prefab instance as part of the contruction function, and make sure it starts off deactivated
                 () => {
                     var toRet = Instantiate(prefab);
@@ -65,11 +104,48 @@ namespace ConfigurationScripts {
         public void Start() {
             // Construct all of the factories we will need
             SetupAnimControllerFactory();
-            // SetupHitboxControllerFactory();
+            SetupHitboxControllerFactory();
             // SetupAnimOccupationFactory();
             // SetupHitboxOccupationFactory();
 
             SetupTrackManagerInstance();
+        }
+
+        private void SetupHitboxControllerFactory() {
+            // Each underlying prefab type defines an underlying 'animation archetype', which beatblock archetypes will map to.
+            // We expect some amount of IAnimControllerConfigurationScripts to be attached to this config object, which will define the animation prefabs,
+            // and thus define the animation archetypes. Each prefab will also contain data detailing which BeatBlock types use them!
+            int currHbArchetypeId = 0;
+            Dictionary<int, int> BeatBlockToHitboxTypeMapping = new Dictionary<int, int>();
+            Dictionary<int, IHitboxControllerConfigurationScript> HitboxArcheTypeToControllerFactoryFunctionMapping = new Dictionary<int, IHitboxControllerConfigurationScript>();
+            List<IObjectPool<HitboxObject>> prefabPools = new List<IObjectPool<HitboxObject>>();
+
+            foreach (IHitboxControllerConfigurationScript config in GetComponents<IHitboxControllerConfigurationScript>()) {
+                foreach (HitboxObject prefab in config.GetPrefabs()) {
+                    // Each prefab type is pooled individually.
+                    var newPool = MakeNewPool(prefab);
+
+                    // Store this new subpool in the global list (which will later be passed into the categorical pool when that is constructed)
+                    prefabPools.Insert(currHbArchetypeId, newPool);
+
+                    // Add a mapping refence for all the BeatBlock types which will end up using this.
+                    foreach (int bbType in prefab.BeatBlockTypesWhichUseThis) {
+                        BeatBlockToHitboxTypeMapping.Add(bbType, currHbArchetypeId);
+                    }
+
+                    // Add a mapping reference to the config object capable of creating the correct Controller object for this animation archetype
+                    HitboxArcheTypeToControllerFactoryFunctionMapping.Add(currHbArchetypeId, config);
+
+                    // Increment!
+                    currHbArchetypeId++;
+                }
+            }
+
+            // Create the shared pool of animation prefab objects
+            ICategoricalObjectPool<HitboxObject> hbPrefabPool = new SimpleCategoricalObjectPool<HitboxObject>(currHbArchetypeId, prefabPools.ToArray());
+
+            // Create the controller factory!
+            hbControllerFactory = new HitboxControllerFactory(BeatBlockToHitboxTypeMapping, HitboxArcheTypeToControllerFactoryFunctionMapping, hbPrefabPool);
         }
 
         private void SetupAnimControllerFactory() {

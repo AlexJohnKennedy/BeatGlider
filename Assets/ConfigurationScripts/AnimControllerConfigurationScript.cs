@@ -12,9 +12,17 @@ namespace ConfigurationScripts {
     /// <summary>
     /// Base script type for making an editor-configurable mapping of IAnimationGameObjectController type to AnimationObject prefabs
     /// </summary>
-    public interface IAnimControllerConfigurationScript {
+    public interface IAnimControllerConfigurationScript : ConfigurationScript<AnimationObject, IAnimationGameObjectController> {
+        
+    }
+
+    public interface IHitboxControllerConfigurationScript : ConfigurationScript<HitboxObject, IHitboxGameObjectController> {
+
+    }
+
+    public interface ConfigurationScript<T, V> {
         // Should be editor settable.
-        IEnumerable<AnimationObject> GetPrefabs();
-        IAnimationGameObjectController CreateController(int animTypeId, ICategoricalObjectPool<AnimationObject> pool);
+        IEnumerable<T> GetPrefabs();
+        V CreateController(int animTypeId, ICategoricalObjectPool<T> pool);
     }
 }
